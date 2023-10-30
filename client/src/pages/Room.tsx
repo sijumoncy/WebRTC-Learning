@@ -1,8 +1,14 @@
-import React from 'react'
+import { useSearchParams } from "react-router-dom"
+
 
 function Room() {
+
+  const [searchParams] = useSearchParams();
+  
+  const connectId = searchParams.get('connectId')
+
   return (
-    <div>Room</div>
+    <div>Room : {connectId}</div>
   )
 }
 
