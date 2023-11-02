@@ -4,14 +4,40 @@ import {BsFillChatLeftDotsFill, BsFillMicFill, BsFillMicMuteFill} from 'react-ic
 import {SlArrowDown} from 'react-icons/sl'
 import {MdCallEnd, MdMoreVert} from 'react-icons/md'
 import {LuScreenShare} from 'react-icons/lu'
+import {socket} from '../socket/socket'
 
 function Room() {
 
   const [searchParams] = useSearchParams();
+  console.log({socket});
+  
+  // const [isConnected, setIsConnected] = useState(socket.connected);
   
   // handle check for meeting id and user details --> else redirect to home
   const connectId = searchParams.get('connectId')
   const tempUserId = `tempuser`;
+
+  // socket connection
+  // useEffect(() => {
+  //   function onConnect() {
+  //     setIsConnected(true);
+  //     console.log('connected socket')
+  //   }
+
+  //   function onDisconnect() {
+  //     setIsConnected(false);
+  //     console.log('disconnected socket')
+  //   }
+
+  //   socket.on('connect', onConnect);
+  //   socket.on('disconnect', onDisconnect);
+
+  //   return () => {
+  //     socket.off('connect', onConnect);
+  //     socket.off('disconnect', onDisconnect);
+  //   };
+
+  // },[])
 
   // componetise later
   return (
