@@ -9,7 +9,9 @@ function Room() {
 
   const [searchParams] = useSearchParams();
   
+  // handle check for meeting id and user details --> else redirect to home
   const connectId = searchParams.get('connectId')
+  const tempUserId = `tempuser`;
 
   // componetise later
   return (
