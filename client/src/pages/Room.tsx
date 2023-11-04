@@ -10,6 +10,7 @@ import { MdCallEnd, MdMoreVert } from "react-icons/md";
 import { LuScreenShare } from "react-icons/lu";
 import { socket } from "../socket/socket";
 import { useEffect, useState } from "react";
+import { setNewRTCConnection } from "../socket/webConnection";
 
 type OtherUsersType = {
   joinedUserId: string;
@@ -24,8 +25,9 @@ function Room() {
   const connectId = searchParams.get("connectId");
   const userId = `tempuser`; //need to get from auth / login
 
-  function addJoinedUser(joinedUserId: string, joinedConnectId: string) {
+  async function addJoinedUser(joinedUserId: string, joinedConnectId: string) {
     setOtherUsers((prev) => [...prev, { joinedUserId, joinedConnectId }]);
+    await setNewRTCConnection(joinedConnectId)
   }
 
   // socket connection
@@ -33,7 +35,7 @@ function Room() {
     function onConnect() {
       console.log("connected socket");
       // connecting to a room for logined user
-      if (socket.connected) {
+      if (socket.connected) { 
         if (userId && connectId) {
           socket.emit("userconnected", {
             disaplayName: userId,
