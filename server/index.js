@@ -20,8 +20,35 @@ const io = new Server(server, {
 	}
 })
 
+// store all connectiondata of all users
+const connections = []
+
 io.on("connection", (socket) => {
 	console.log('user connected', socket.id)
+
+  // user on connection event
+  socket.on('userconnected', (data) => {
+    console.log("connected user : ", {data});
+
+    // users data for the same connectId room
+    const otherUsers = connections.filter((user) => user.connnectId === data.connectId)
+
+    connections.push({
+      connectionId:socket.id, // unique user connected id
+      userId: data.disaplayName,
+      connnectId:data.connectId //room id
+    })
+
+    // send info to all existing room user about new user joined
+    otherUsers.forEach((user) => {
+      socket.to(user.connectionId).emit("new_user_joined_info", {
+        joinedUserId: data.disaplayName,
+        joinedConnectionId: socket.id
+      })
+    })
+  })
+
+
 })
 
 server.listen(8000, () => {
