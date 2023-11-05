@@ -38,6 +38,7 @@ function Room() {
   const [rtpAudioSenders, setRtpAudioSenders] = useState([]);
 
   const [videoStatus, setVideoStatus] = useState<VideoStates>(VideoStates.None);
+  const [localVideo, setLocalVideo] = useState<MediaStream>();
 
   // handle check for meeting id and user details --> else redirect to home
   const connectId = searchParams.get("connectId");
@@ -70,12 +71,41 @@ function Room() {
     }
   };
 
+  const handleVideoOrScreen = async (type: VideoStates) => {
+    try {
+      let stream = null;
+      if (type === VideoStates.Camera && navigator) {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: 1400,
+            height: 900,
+          },
+          audio: false,
+        });
+      } else if (type === VideoStates.Screen && navigator) {
+        stream = await navigator.mediaDevices.getDisplayMedia({
+          video: {
+            width: 1400,
+            height: 900,
+          },
+        });
+      }
+      if (stream && stream.getVideoTracks().length > 0) {
+        const currentTrack = stream.getVideoTracks()[0];
+        setLocalVideo(new MediaStream([currentTrack]))
+      }
+    } catch (err) {
+      console.log("error loading user media : ", err);
+    }
+  };
+
   // handle Video Control
   const handleVideo = async () => {
     if (videoStatus === VideoStates.Camera) {
       setVideoStatus(VideoStates.None);
     } else {
       setVideoStatus(VideoStates.Camera);
+      await handleVideoOrScreen(VideoStates.Camera);
     }
   };
 
@@ -85,6 +115,7 @@ function Room() {
       setVideoStatus(VideoStates.None);
     } else {
       setVideoStatus(VideoStates.Screen);
+      await handleVideoOrScreen(VideoStates.Screen);
     }
   };
 
@@ -169,7 +200,17 @@ function Room() {
       {/* main section */}
       <section id="video-section" className="w-full h-full">
         {/* own ui */}
-        <div></div>
+        <div>
+          <div className="">
+            <video
+              className=""
+              autoPlay
+              muted
+              ref={(vidElement) =>
+                vidElement && localVideo && (vidElement.srcObject =localVideo)}
+            />
+          </div>
+        </div>
         {/* other users */}
         <div className="grid grid-flow-col">
           {otherUsers.map((other) => (
@@ -238,7 +279,10 @@ function Room() {
         </div>
 
         <div className="flex gap-8 items-center text-lg">
-          <button className="cursor-pointer" onClick={() => handleScreenShare()}>
+          <button
+            className="cursor-pointer"
+            onClick={() => handleScreenShare()}
+          >
             <LuScreenShare className="w-10 h-10 " />
           </button>
           <button className="cursor-pointer">
