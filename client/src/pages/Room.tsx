@@ -14,7 +14,7 @@ import { setNewRTCConnection } from "../socket/webConnection";
 
 type OtherUsersType = {
   joinedUserId: string;
-  joinedConnectId: string;
+  joinedConnectionId: string;
 };
 
 function Room() {
@@ -27,9 +27,9 @@ function Room() {
   const connectId = searchParams.get("connectId");
   const userId = `tempuser`; //need to get from auth / login
 
-  async function addJoinedUser(joinedUserId: string, joinedConnectId: string) {
-    setOtherUsers((prev) => [...prev, { joinedUserId, joinedConnectId }]);
-    const {remoteVideoStream, remoteAudioStream} = await setNewRTCConnection(joinedConnectId)
+  async function addJoinedUser(joinedUserId: string, joinedConnectionId: string) {
+    setOtherUsers((prev) => [...prev, { joinedUserId, joinedConnectionId }]);
+    const {remoteVideoStream, remoteAudioStream} = await setNewRTCConnection(joinedConnectionId)
     setOthersVideoStreams(remoteVideoStream)
     setOthersAudioStreams(remoteAudioStream)
   }
@@ -54,6 +54,15 @@ function Room() {
         addJoinedUser(data.joinedUserId, data.joinedConnectionId);
     }
 
+    // Info about other users who are in the room to newly joined
+    function infoAboutOtherUsers(otherUsers:{joinedUserId:string, joinedConnectionId:string}[]) {
+      if(otherUsers){
+        otherUsers.forEach((other) => {
+          addJoinedUser(other.joinedUserId, other.joinedConnectionId)
+        })
+      }
+  }
+
     // fucntion to hadle emitted config and streams
     async function onSDPProcess(data:{
       message: string,
@@ -69,12 +78,14 @@ function Room() {
     socket.on("connect", onConnect);
     socket.on("disconnect", onDisconnect);
     socket.on("new_user_joined_info", onNewJoin);
+    socket.on("inform_new_user_about_others", infoAboutOtherUsers);
     socket.on("SDPProcess", onSDPProcess);
 
     return () => {
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
       socket.off("new_user_joined_info", onNewJoin);
+      socket.off("inform_new_user_about_others", infoAboutOtherUsers);
       socket.off("onSDPProcess", onSDPProcess);
     };
   }, [connectId, userId, socket]);
@@ -103,10 +114,10 @@ function Room() {
         {/* other users */}
         <div className="grid grid-flow-col">
           {otherUsers.map((other) => (
-            <div id={other.joinedConnectId} className="min-w-[15px] min-h-[15px] border border-gray-300 rounded-md flex flex-col justify-center items-center">
+            <div id={other.joinedConnectionId} className="min-w-[15px] min-h-[15px] border border-gray-300 rounded-md flex flex-col justify-center items-center">
               <div className="">
-                <video className="" autoPlay muted ref={(vidElement) => (vidElement && (vidElement.srcObject = othersVideoStreams[other.joinedConnectId]))}/>
-                <audio className="hidden" src="" autoPlay controls muted ref={(audioElm) => (audioElm && (audioElm.srcObject = othersAudioStreams[other.joinedConnectId]))}/>
+                <video className="" autoPlay muted ref={(vidElement) => (vidElement && (vidElement.srcObject = othersVideoStreams[other.joinedConnectionId]))}/>
+                <audio className="hidden" src="" autoPlay controls muted ref={(audioElm) => (audioElm && (audioElm.srcObject = othersAudioStreams[other.joinedConnectionId]))}/>
               </div>
               <span className="text-sm font-medium">{other.joinedUserId}</span>
             </div>

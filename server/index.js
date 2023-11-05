@@ -46,6 +46,10 @@ io.on("connection", (socket) => {
         joinedConnectionId: socket.id
       })
     })
+
+    // emit other users info to newly joined users
+    socket.emit("inform_new_user_about_others", otherUsers)
+
   })
 
   // process the user configs (2 data)
@@ -55,6 +59,7 @@ io.on("connection", (socket) => {
       fromConnectionId:socket.id
     })
   })
+
 
 
 })
