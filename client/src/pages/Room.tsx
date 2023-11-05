@@ -17,29 +17,83 @@ type OtherUsersType = {
   joinedConnectionId: string;
 };
 
+enum VideoStates {
+  None = 0,
+  Camera = 1,
+  Screen = 2,
+}
+
 function Room() {
   const [searchParams] = useSearchParams();
   const [otherUsers, setOtherUsers] = useState<OtherUsersType[] | []>([]);
-  const [othersVideoStreams, setOthersVideoStreams] = useState<{[key:string] : MediaStream}>({});
-  const [othersAudioStreams, setOthersAudioStreams] = useState<{[key:string] : MediaStream}>({});
+  const [othersVideoStreams, setOthersVideoStreams] = useState<{
+    [key: string]: MediaStream;
+  }>({});
+  const [othersAudioStreams, setOthersAudioStreams] = useState<{
+    [key: string]: MediaStream;
+  }>({});
+
+  const [audio, setaudio] = useState(false);
+  const [isMicMute, setIsMicMute] = useState(true);
+  const [rtpAudioSenders, setRtpAudioSenders] = useState([]);
+
+  const [videoStatus, setVideoStatus] = useState<VideoStates>(VideoStates.None);
 
   // handle check for meeting id and user details --> else redirect to home
   const connectId = searchParams.get("connectId");
   const userId = `tempuser`; //need to get from auth / login
 
-  async function addJoinedUser(joinedUserId: string, joinedConnectionId: string) {
+  async function addJoinedUser(
+    joinedUserId: string,
+    joinedConnectionId: string
+  ) {
     setOtherUsers((prev) => [...prev, { joinedUserId, joinedConnectionId }]);
-    const {remoteVideoStream, remoteAudioStream} = await setNewRTCConnection(joinedConnectionId)
-    setOthersVideoStreams(remoteVideoStream)
-    setOthersAudioStreams(remoteAudioStream)
+    const { remoteVideoStream, remoteAudioStream } = await setNewRTCConnection(
+      joinedConnectionId
+    );
+    setOthersVideoStreams(remoteVideoStream);
+    setOthersAudioStreams(remoteAudioStream);
   }
+
+  // handle mic and audio
+  const handleMicrophone = async () => {
+    if (!audio) {
+      await loadAudio();
+      console.log("Audio Permission not granded");
+    }
+    if (isMicMute) {
+      setIsMicMute(true);
+      updateMediaSenders(audio, rtpAudioSenders);
+    } else {
+      setIsMicMute(false);
+      removeMediaSenders(rtpAudioSenders);
+    }
+  };
+
+  // handle Video Control
+  const handleVideo = async () => {
+    if (videoStatus === VideoStates.Camera) {
+      setVideoStatus(VideoStates.None);
+    } else {
+      setVideoStatus(VideoStates.Camera);
+    }
+  };
+
+  // handle Screen Share Control
+  const handleScreenShare = async () => {
+    if (videoStatus === VideoStates.Screen) {
+      setVideoStatus(VideoStates.None);
+    } else {
+      setVideoStatus(VideoStates.Screen);
+    }
+  };
 
   // socket connection
   useEffect(() => {
     function onConnect() {
       console.log("connected socket");
       // connecting to a room for logined user
-      if (socket.connected) { 
+      if (socket.connected) {
         if (userId && connectId) {
           socket.emit("userconnected", {
             disaplayName: userId,
@@ -50,25 +104,30 @@ function Room() {
     }
 
     // newly joined other user info --> add to UI
-    function onNewJoin(data:{joinedUserId:string, joinedConnectionId:string}) {
-        addJoinedUser(data.joinedUserId, data.joinedConnectionId);
+    function onNewJoin(data: {
+      joinedUserId: string;
+      joinedConnectionId: string;
+    }) {
+      addJoinedUser(data.joinedUserId, data.joinedConnectionId);
     }
 
     // Info about other users who are in the room to newly joined
-    function infoAboutOtherUsers(otherUsers:{joinedUserId:string, joinedConnectionId:string}[]) {
-      if(otherUsers){
+    function infoAboutOtherUsers(
+      otherUsers: { joinedUserId: string; joinedConnectionId: string }[]
+    ) {
+      if (otherUsers) {
         otherUsers.forEach((other) => {
-          addJoinedUser(other.joinedUserId, other.joinedConnectionId)
-        })
+          addJoinedUser(other.joinedUserId, other.joinedConnectionId);
+        });
       }
-  }
+    }
 
     // fucntion to hadle emitted config and streams
-    async function onSDPProcess(data:{
-      message: string,
-      fromConnectionId:string
-  }){
-      await SDPClientSideProcess(data.message, data.fromConnectionId)
+    async function onSDPProcess(data: {
+      message: string;
+      fromConnectionId: string;
+    }) {
+      await SDPClientSideProcess(data.message, data.fromConnectionId);
     }
 
     function onDisconnect() {
@@ -114,10 +173,33 @@ function Room() {
         {/* other users */}
         <div className="grid grid-flow-col">
           {otherUsers.map((other) => (
-            <div id={other.joinedConnectionId} className="min-w-[15px] min-h-[15px] border border-gray-300 rounded-md flex flex-col justify-center items-center">
+            <div
+              id={other.joinedConnectionId}
+              className="min-w-[15px] min-h-[15px] border border-gray-300 rounded-md flex flex-col justify-center items-center"
+            >
               <div className="">
-                <video className="" autoPlay muted ref={(vidElement) => (vidElement && (vidElement.srcObject = othersVideoStreams[other.joinedConnectionId]))}/>
-                <audio className="hidden" src="" autoPlay controls muted ref={(audioElm) => (audioElm && (audioElm.srcObject = othersAudioStreams[other.joinedConnectionId]))}/>
+                <video
+                  className=""
+                  autoPlay
+                  muted
+                  ref={(vidElement) =>
+                    vidElement &&
+                    (vidElement.srcObject =
+                      othersVideoStreams[other.joinedConnectionId])
+                  }
+                />
+                <audio
+                  className="hidden"
+                  src=""
+                  autoPlay
+                  controls
+                  muted
+                  ref={(audioElm) =>
+                    audioElm &&
+                    (audioElm.srcObject =
+                      othersAudioStreams[other.joinedConnectionId])
+                  }
+                />
               </div>
               <span className="text-sm font-medium">{other.joinedUserId}</span>
             </div>
@@ -136,16 +218,32 @@ function Room() {
         </div>
 
         <div className="flex gap-2 items-center text-lg">
-          <BsFillMicFill className="w-10 h-10 cursor-pointer" />
-          <BsFillMicMuteFill className="w-10 h-10 cursor-pointer" />
+          <button className="cursor-pointer" onClick={() => handleMicrophone()}>
+            {isMicMute ? (
+              <BsFillMicMuteFill className="w-10 h-10" />
+            ) : (
+              <BsFillMicFill className="w-10 h-10" />
+            )}
+          </button>
+
           <MdCallEnd className="w-10 h-10 text-red-500 cursor-pointer" />
-          <FaVideo className="w-10 h-10  cursor-pointer" />
-          <FaVideoSlash className="w-10 h-10  cursor-pointer" />
+
+          <button className="cursor-pointer" onClick={() => handleVideo()}>
+            {videoStatus === VideoStates.Camera ? (
+              <FaVideo className="w-10 h-10 " />
+            ) : (
+              <FaVideoSlash className="w-10 h-10 " />
+            )}
+          </button>
         </div>
 
         <div className="flex gap-8 items-center text-lg">
-          <LuScreenShare className="w-10 h-10  cursor-pointer" />
-          <MdMoreVert className="w-10 h-10  cursor-pointer" />
+          <button className="cursor-pointer" onClick={() => handleScreenShare()}>
+            <LuScreenShare className="w-10 h-10 " />
+          </button>
+          <button className="cursor-pointer">
+            <MdMoreVert className="w-10 h-10 " />
+          </button>
         </div>
       </section>
     </div>
