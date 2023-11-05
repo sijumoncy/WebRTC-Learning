@@ -48,6 +48,14 @@ io.on("connection", (socket) => {
     })
   })
 
+  // process the user configs (2 data)
+  socket.on('SDPProcess', (data) => {
+    socket.to(data.toConnectionId).emit('SDPProcess', {
+      message:data.message,
+      fromConnectionId:socket.id
+    })
+  })
+
 
 })
 

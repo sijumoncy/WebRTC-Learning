@@ -8,7 +8,7 @@ import {
 import { SlArrowDown } from "react-icons/sl";
 import { MdCallEnd, MdMoreVert } from "react-icons/md";
 import { LuScreenShare } from "react-icons/lu";
-import { socket } from "../socket/socket";
+import { SDPClientSideProcess, socket } from "../socket/socket";
 import { useEffect, useState } from "react";
 import { setNewRTCConnection } from "../socket/webConnection";
 
@@ -20,6 +20,8 @@ type OtherUsersType = {
 function Room() {
   const [searchParams] = useSearchParams();
   const [otherUsers, setOtherUsers] = useState<OtherUsersType[] | []>([]);
+  const [othersVideoStreams, setOthersVideoStreams] = useState<{[key:string] : MediaStream}>({});
+  const [othersAudioStreams, setOthersAudioStreams] = useState<{[key:string] : MediaStream}>({});
 
   // handle check for meeting id and user details --> else redirect to home
   const connectId = searchParams.get("connectId");
@@ -27,7 +29,9 @@ function Room() {
 
   async function addJoinedUser(joinedUserId: string, joinedConnectId: string) {
     setOtherUsers((prev) => [...prev, { joinedUserId, joinedConnectId }]);
-    await setNewRTCConnection(joinedConnectId)
+    const {remoteVideoStream, remoteAudioStream} = await setNewRTCConnection(joinedConnectId)
+    setOthersVideoStreams(remoteVideoStream)
+    setOthersAudioStreams(remoteAudioStream)
   }
 
   // socket connection
@@ -43,11 +47,19 @@ function Room() {
           });
         }
       }
+    }
 
-      // newly joined other user info --> add to UI
-      socket.on("new_user_joined_info", (data) => {
+    // newly joined other user info --> add to UI
+    function onNewJoin(data:{joinedUserId:string, joinedConnectionId:string}) {
         addJoinedUser(data.joinedUserId, data.joinedConnectionId);
-      });
+    }
+
+    // fucntion to hadle emitted config and streams
+    async function onSDPProcess(data:{
+      message: string,
+      fromConnectionId:string
+  }){
+      await SDPClientSideProcess(data.message, data.fromConnectionId)
     }
 
     function onDisconnect() {
@@ -56,12 +68,16 @@ function Room() {
 
     socket.on("connect", onConnect);
     socket.on("disconnect", onDisconnect);
+    socket.on("new_user_joined_info", onNewJoin);
+    socket.on("SDPProcess", onSDPProcess);
 
     return () => {
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
+      socket.off("new_user_joined_info", onNewJoin);
+      socket.off("onSDPProcess", onSDPProcess);
     };
-  }, []);
+  }, [connectId, userId, socket]);
 
   // componetise later
   return (
@@ -89,8 +105,8 @@ function Room() {
           {otherUsers.map((other) => (
             <div id={other.joinedConnectId} className="min-w-[15px] min-h-[15px] border border-gray-300 rounded-md flex flex-col justify-center items-center">
               <div className="">
-                <video autoPlay muted/>
-                <audio className="hidden" autoPlay controls muted/>
+                <video className="" autoPlay muted ref={(vidElement) => (vidElement && (vidElement.srcObject = othersVideoStreams[other.joinedConnectId]))}/>
+                <audio className="hidden" src="" autoPlay controls muted ref={(audioElm) => (audioElm && (audioElm.srcObject = othersAudioStreams[other.joinedConnectId]))}/>
               </div>
               <span className="text-sm font-medium">{other.joinedUserId}</span>
             </div>
