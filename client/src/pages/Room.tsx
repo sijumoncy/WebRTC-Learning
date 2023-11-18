@@ -10,7 +10,8 @@ import { MdCallEnd, MdMoreVert } from "react-icons/md";
 import { LuScreenShare } from "react-icons/lu";
 import { SDPClientSideProcess, socket } from "../socket/socket";
 import { useEffect, useState } from "react";
-import { removeMediaSenders, setNewRTCConnection, updateMediaSenders } from "../socket/webConnection";
+import { removeMediaSenders, setNewRTCConnection, updateMediaSenders,
+  handleLeftUserConnection } from "../socket/webConnection";
 
 type OtherUsersType = {
   joinedUserId: string;
@@ -28,10 +29,10 @@ function Room() {
   const [currentUser, setCurrentUser] = useState<{userName:string, connectionId:string}>();
   const [otherUsers, setOtherUsers] = useState<OtherUsersType[] | []>([]);
   const [othersVideoStreams, setOthersVideoStreams] = useState<{
-    [key: string]: MediaStream;
+    [key: string]: MediaStream | null;
   }>({});
   const [othersAudioStreams, setOthersAudioStreams] = useState<{
-    [key: string]: MediaStream;
+    [key: string]: MediaStream | null;
   }>({});
 
   const [audio, setaudio] = useState<MediaStream | null>(null);
@@ -58,7 +59,7 @@ function Room() {
     setOthersAudioStreams(remoteAudioStream);
     if(remoteVideoStream && currentUser?.connectionId && rtpVideoSenders[currentUser?.connectionId]){
       // update : video streams (need to move the to setNewRTCconnection last in MVP)
-      const newRtpVideoSenders = await updateMediaSenders(remoteVideoStream[currentUser?.connectionId].getTracks()[0], rtpVideoSenders)
+      const newRtpVideoSenders = await updateMediaSenders(remoteVideoStream[currentUser?.connectionId]!.getTracks()[0], rtpVideoSenders)
       setRtpVideoSenders(newRtpVideoSenders)
     }
   }
@@ -88,7 +89,11 @@ function Room() {
     }
     if (isMicMute) {
       setIsMicMute(false);
-      audioTrack && updateMediaSenders(audioTrack, rtpAudioSenders);
+      if(audioTrack){
+        updateMediaSenders(audioTrack, rtpAudioSenders);
+        const newRtpAudioSenders = await updateMediaSenders(audioTrack, rtpAudioSenders)
+        setRtpAudioSenders(newRtpAudioSenders)
+      }
     } else {
       setIsMicMute(true);
       removeMediaSenders(rtpAudioSenders);
@@ -124,7 +129,9 @@ function Room() {
             width: 1400,
             height: 900,
           },
+          audio:false
         });
+        // remove video on screen sharing..
       }
       if (stream && stream.getVideoTracks().length > 0) {
         const currentTrack = stream.getVideoTracks()[0];
@@ -207,6 +214,19 @@ function Room() {
       // update media call (that need to be call last in setNewRTCConnection)
     }
 
+    async function informAboutUserLeft(data:{
+      leftUserId: string
+    }) {
+      console.log("inoformation about left user :", data);
+      // remove left user from others UI
+      const newOtherUsers = otherUsers.filter((userObj) => userObj.joinedUserId !== data.leftUserId)
+      setOtherUsers(newOtherUsers);
+      // remove medias
+      const {remoteVideoStream, remoteAudioStream} = await handleLeftUserConnection(data.leftUserId)
+      setOthersVideoStreams(remoteVideoStream);
+      setOthersAudioStreams(remoteAudioStream);
+    }
+
     function onDisconnect() {
       console.log("disconnected socket");
     }
@@ -216,6 +236,7 @@ function Room() {
     socket.on("new_user_joined_info", onNewJoin);
     socket.on("inform_new_user_about_others", infoAboutOtherUsers);
     socket.on("SDPProcess", onSDPProcess);
+    socket.on("inform_user_left", informAboutUserLeft);
 
     return () => {
       socket.off("connect", onConnect);
@@ -223,6 +244,7 @@ function Room() {
       socket.off("new_user_joined_info", onNewJoin);
       socket.off("inform_new_user_about_others", infoAboutOtherUsers);
       socket.off("onSDPProcess", onSDPProcess);
+      socket.off("inform_user_left", informAboutUserLeft);
     };
   }, [connectId, userId, socket]);
 

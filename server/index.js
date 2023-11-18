@@ -60,7 +60,21 @@ io.on("connection", (socket) => {
     })
   })
 
-
+  socket.on("disconnect", () => {
+    console.log("user disconnected");
+    const leftUser = connections.find((connection) => connection.connectionId === socket.id)
+    if(leftUser){
+      const leftConnnectId = leftUser.connnectId
+      const connections = connections.filter((connection) => connection.connnectId !== socket.id)
+      // list of all users in the same connect room
+      const connectRoomUsers = connections.filter((connection) => connection.connnectId === leftConnnectId)
+      connectRoomUsers.forEach((user) => {
+        socket.to(user.connectId).emit("inform_user_left", {
+          leftUserId:socket.id
+        })
+      })
+    }
+  })
 
 })
 

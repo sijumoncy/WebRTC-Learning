@@ -12,18 +12,20 @@ const iceConfig = {
     ]
 }
 
-export const peersConnectionIds:{[key:string] : string} = {};
-export const peersConnection:{[key:string] : RTCPeerConnection} = {};
-const remoteVideoStream:{[key:string] : MediaStream} = {}
-const remoteAudioStream:{[key:string] : MediaStream} = {}
+export const peersConnectionIds:{[key:string] : string | null} = {};
+export const peersConnection:{[key:string] : RTCPeerConnection | null} = {};
+const remoteVideoStream:{[key:string] : MediaStream | null} = {}
+const remoteAudioStream:{[key:string] : MediaStream | null} = {}
 
 async function setOffer(joinedConnectId:string) {
     const connection = peersConnection[joinedConnectId]
-    const offer = await connection.createOffer()
-    await connection.setLocalDescription(offer)
-    SDPFunction(JSON.stringify({
-        offer: connection.localDescription,
-    }), joinedConnectId)
+    if(connection !== null){
+        const offer = await connection.createOffer()
+        await connection.setLocalDescription(offer)
+        SDPFunction(JSON.stringify({
+            offer: connection.localDescription,
+        }), joinedConnectId)
+    }
 }
 
 function CheckConnectionStatus(peerId:RTCPeerConnection) {
@@ -58,6 +60,32 @@ async function removeMediaSenders(rtpSenders:{[key:string]:RTCRtpSender | null})
     })
 }
 
+async function handleLeftUserConnection(leftUserId:string){
+    console.log("in let user connection media handler");
+    peersConnectionIds[leftUserId] = null;
+    if(peersConnection[leftUserId] && peersConnection[leftUserId] !== null){
+        peersConnection[leftUserId]?.close();
+        peersConnection[leftUserId] = null;
+    }
+    if(remoteAudioStream[leftUserId] && remoteAudioStream[leftUserId] !== null){
+        remoteAudioStream[leftUserId]!.getTracks().forEach((track) => {
+            if(track.stop){
+                track.stop()
+            }
+        })
+        remoteAudioStream[leftUserId] = null
+    }
+    if(remoteVideoStream[leftUserId] && remoteVideoStream[leftUserId] !== null){
+        remoteVideoStream[leftUserId]!.getTracks().forEach((track) => {
+            if(track.stop){
+                track.stop()
+            }
+        })
+        remoteVideoStream[leftUserId] = null
+    }
+
+    return {remoteAudioStream, remoteVideoStream}
+}
 
 
 const setNewRTCConnection = async (joinedConnectId:string) => {
@@ -84,14 +112,18 @@ const setNewRTCConnection = async (joinedConnectId:string) => {
             remoteAudioStream[joinedConnectId] = new MediaStream()
         }
         if(event.track.kind === 'video') {
-            remoteVideoStream[joinedConnectId].getVideoTracks()
-            .forEach((vidTrack) => remoteVideoStream[joinedConnectId].removeTrack(vidTrack))
-            remoteVideoStream[joinedConnectId].addTrack(event.track)
+            if(remoteVideoStream[joinedConnectId] !== null){
+                remoteVideoStream[joinedConnectId]!.getVideoTracks()
+                .forEach((vidTrack) => remoteVideoStream[joinedConnectId]!.removeTrack(vidTrack))
+                remoteVideoStream[joinedConnectId]!.addTrack(event.track)
+            }
         }
         if(event.track.kind === 'audio') { 
-            remoteAudioStream[joinedConnectId].getVideoTracks()
-            .forEach((audioTrack) => remoteAudioStream[joinedConnectId].removeTrack(audioTrack))
-            remoteAudioStream[joinedConnectId].addTrack(event.track)
+            if(remoteAudioStream[joinedConnectId] !== null){
+                remoteAudioStream[joinedConnectId]!.getVideoTracks()
+                .forEach((audioTrack) => remoteAudioStream[joinedConnectId]!.removeTrack(audioTrack))
+                remoteAudioStream[joinedConnectId]!.addTrack(event.track)
+            }
         }
     }
 
@@ -104,4 +136,4 @@ const setNewRTCConnection = async (joinedConnectId:string) => {
     return {remoteVideoStream, remoteAudioStream, rtcConnection}
 }
 
-export {setNewRTCConnection, updateMediaSenders, removeMediaSenders}
+export {setNewRTCConnection, updateMediaSenders, removeMediaSenders, handleLeftUserConnection}
