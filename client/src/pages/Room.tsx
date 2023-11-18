@@ -10,7 +10,7 @@ import { MdCallEnd, MdMoreVert } from "react-icons/md";
 import { LuScreenShare } from "react-icons/lu";
 import { SDPClientSideProcess, socket } from "../socket/socket";
 import { useEffect, useState } from "react";
-import { setNewRTCConnection } from "../socket/webConnection";
+import { removeMediaSenders, setNewRTCConnection, updateMediaSenders } from "../socket/webConnection";
 
 type OtherUsersType = {
   joinedUserId: string;
@@ -25,6 +25,7 @@ enum VideoStates {
 
 function Room() {
   const [searchParams] = useSearchParams();
+  const [currentUser, setCurrentUser] = useState<{userName:string, connectionId:string}>();
   const [otherUsers, setOtherUsers] = useState<OtherUsersType[] | []>([]);
   const [othersVideoStreams, setOthersVideoStreams] = useState<{
     [key: string]: MediaStream;
@@ -33,12 +34,13 @@ function Room() {
     [key: string]: MediaStream;
   }>({});
 
-  const [audio, setaudio] = useState(false);
+  const [audio, setaudio] = useState<MediaStream | null>(null);
   const [isMicMute, setIsMicMute] = useState(true);
-  const [rtpAudioSenders, setRtpAudioSenders] = useState([]);
-
+  const [rtpAudioSenders, setRtpAudioSenders] = useState<{[key:string]:RTCRtpSender | null}>({});
+  
   const [videoStatus, setVideoStatus] = useState<VideoStates>(VideoStates.None);
-  const [localVideo, setLocalVideo] = useState<MediaStream>();
+  const [localVideo, setLocalVideo] = useState<MediaStream | null>(null);
+  const [rtpVideoSenders, setRtpVideoSenders] = useState<{[key:string]:RTCRtpSender | null}>({});
 
   // handle check for meeting id and user details --> else redirect to home
   const connectId = searchParams.get("connectId");
@@ -54,24 +56,58 @@ function Room() {
     );
     setOthersVideoStreams(remoteVideoStream);
     setOthersAudioStreams(remoteAudioStream);
+    if(remoteVideoStream && currentUser?.connectionId && rtpVideoSenders[currentUser?.connectionId]){
+      // update : video streams (need to move the to setNewRTCconnection last in MVP)
+      const newRtpVideoSenders = await updateMediaSenders(remoteVideoStream[currentUser?.connectionId].getTracks()[0], rtpVideoSenders)
+      setRtpVideoSenders(newRtpVideoSenders)
+    }
+  }
+
+  async function loadAudio(){
+    try{
+      const audioStream = await navigator.mediaDevices.getUserMedia({
+        video:false,
+        audio:true
+      })
+      const audioTrack = audioStream.getAudioTracks()[0]
+      return audioTrack
+    } catch(err) {
+      console.log("audio load error : ", err);
+    }
   }
 
   // handle mic and audio
   const handleMicrophone = async () => {
+    let audioTrack;
     if (!audio) {
-      await loadAudio();
+      audioTrack = await loadAudio();
+      if(audioTrack){
+        setaudio(new MediaStream([audioTrack]))
+      }
       console.log("Audio Permission not granded");
     }
     if (isMicMute) {
-      setIsMicMute(true);
-      updateMediaSenders(audio, rtpAudioSenders);
-    } else {
       setIsMicMute(false);
+      audioTrack && updateMediaSenders(audioTrack, rtpAudioSenders);
+    } else {
+      setIsMicMute(true);
       removeMediaSenders(rtpAudioSenders);
     }
   };
 
+  const removeVideoStream = (rtpVideoSenders:{[key:string]:RTCRtpSender | null}) => {
+    if(localVideo){
+      localVideo.getVideoTracks()[0].stop()
+      setLocalVideo(null)
+      removeMediaSenders(rtpVideoSenders)
+    }
+  }
+
   const handleVideoOrScreen = async (type: VideoStates) => {
+    if(type === VideoStates.None){
+      removeVideoStream(rtpVideoSenders);
+      return;
+    }
     try {
       let stream = null;
       if (type === VideoStates.Camera && navigator) {
@@ -93,6 +129,8 @@ function Room() {
       if (stream && stream.getVideoTracks().length > 0) {
         const currentTrack = stream.getVideoTracks()[0];
         setLocalVideo(new MediaStream([currentTrack]))
+        const newRtpVideoSenders = await updateMediaSenders(currentTrack, rtpVideoSenders)
+        setRtpVideoSenders(newRtpVideoSenders)
       }
     } catch (err) {
       console.log("error loading user media : ", err);
@@ -103,18 +141,21 @@ function Room() {
   const handleVideo = async () => {
     if (videoStatus === VideoStates.Camera) {
       setVideoStatus(VideoStates.None);
+      await handleVideoOrScreen(VideoStates.None);
     } else {
       setVideoStatus(VideoStates.Camera);
       await handleVideoOrScreen(VideoStates.Camera);
     }
   };
-
+  
   // handle Screen Share Control
   const handleScreenShare = async () => {
     if (videoStatus === VideoStates.Screen) {
       setVideoStatus(VideoStates.None);
+      await handleVideoOrScreen(VideoStates.None);
     } else {
       setVideoStatus(VideoStates.Screen);
+      // process the video or screen
       await handleVideoOrScreen(VideoStates.Screen);
     }
   };
@@ -139,6 +180,10 @@ function Room() {
       joinedUserId: string;
       joinedConnectionId: string;
     }) {
+      setCurrentUser({
+        userName:data.joinedUserId,
+        connectionId:data.joinedConnectionId,
+      })
       addJoinedUser(data.joinedUserId, data.joinedConnectionId);
     }
 
@@ -159,6 +204,7 @@ function Room() {
       fromConnectionId: string;
     }) {
       await SDPClientSideProcess(data.message, data.fromConnectionId);
+      // update media call (that need to be call last in setNewRTCConnection)
     }
 
     function onDisconnect() {
