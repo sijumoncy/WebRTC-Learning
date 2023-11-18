@@ -9,7 +9,11 @@ dotenv.config();
 const app = express();
 app.use(cors())
 
-const {Server} = require('socket.io')
+const {Server} = require('socket.io');
+const path = require('path');
+const fs = require('fs')
+
+const  fileUpload = require('express-fileupload')
 
 const server = http.createServer(app)
 
@@ -78,6 +82,27 @@ io.on("connection", (socket) => {
     }
   })
 
+  socket.on("fileAttachedInfoToOthers", (data) => {
+    console.log("file attched event call");
+    const fileDir = path.join(__dirname, "attachments", data.connectId, data.fileName)
+    const fileSharedUser = connections.find((connection) => connection.connectionId === socket.id)
+    if(fileSharedUser){
+      const FileSharedUserconnectId = fileSharedUser.connectId
+      const FileFrom = fileSharedUser.userId
+      // filter meeting room users
+      const connectRoomUsers = connections.filter((connection) => connection.connnectId === FileSharedUserconnectId)
+      connectRoomUsers.forEach((user) => {
+        socket.to(user.connectionId).emit("newFileAttached", {
+          connectId:data.connectId,
+          username:data.userName,
+          fileName:data.fileName,
+          fileDir
+        })
+      })
+
+    }
+  })
+
   socket.on("disconnect", () => {
     console.log("user disconnected");
     const leftUser = connections.find((connection) => connection.connectionId === socket.id)
@@ -94,6 +119,22 @@ io.on("connection", (socket) => {
     }
   })
 
+})
+
+app.use(fileUpload())
+// attachment route
+app.post("/attachment", (req, res) => {
+  const data = req.body
+  const file = req.files.sharedAttachment
+  const fileDir = path.join(__dirname, "attachments", data.connectId)
+  if(!fs.existsSync(fileDir)){
+    fs.mkdirSync(fileDir)
+  }
+  file.mv(path.join(fileDir, file.name), (err) => {
+    if(err){
+      console.log("file upload failed : ", err);
+    }
+  })
 })
 
 server.listen(8000, () => {

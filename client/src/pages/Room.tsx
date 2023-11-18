@@ -30,7 +30,7 @@ enum VideoStates {
 
 function Room() {
   const [searchParams] = useSearchParams();
-  const navigate  = useNavigate()
+  const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState<{
     userName: string;
     connectionId: string;
@@ -60,9 +60,18 @@ function Room() {
   );
 
   const [message, setMessage] = useState("");
-  const [allChat, setAllChat ] = useState<{
-    from:string, message:string, time:string, own?:boolean
-  }[]>([])
+  const [allChat, setAllChat] = useState<
+    {
+      from: string;
+      message: string;
+      time: string;
+      own?: boolean;
+      file?: {
+        fileName: string;
+        fileDir: string;
+      };
+    }[]
+  >([]);
 
   // handle check for meeting id and user details --> else redirect to home
   const connectId = searchParams.get("connectId");
@@ -205,14 +214,19 @@ function Room() {
 
   // send messsage
   const messageHandler = () => {
-    socket.emit("sendMessage", {message});
-    setMessage('')
+    socket.emit("sendMessage", { message });
+    setMessage("");
 
     // push the own message.
-    setAllChat((prev) => [...prev, {from:'', 
-    message:message, 
-    own:true, 
-    time: new Date().toLocaleString()}])
+    setAllChat((prev) => [
+      ...prev,
+      {
+        from: "",
+        message: message,
+        own: true,
+        time: new Date().toLocaleString(),
+      },
+    ]);
   };
 
   // socket connection
@@ -280,13 +294,40 @@ function Room() {
       console.log("disconnected socket");
     }
 
-    function onNewMessageRecieve(data:{
-      from:string,
-      message:string,
+    function onNewMessageRecieve(data: { from: string; message: string }) {
+      const time = new Date();
+      const localTIme = time.toLocaleString("en-US", {
+        hour: "numeric",
+        minute: "numeric",
+        hour12: true,
+      });
+      setAllChat((prev) => [
+        ...prev,
+        { from: data.from, message: data.message, time: localTIme },
+      ]);
+    }
+
+    function onNewAttachment(data: {
+      connectId: string;
+      username: string;
+      fileName: string;
+      fileDir: string;
     }) {
-      const time = new Date()
-      const localTIme = time.toLocaleString()
-      setAllChat((prev) => [...prev, {from:data.from, message:data.message, time:localTIme}])
+      const time = new Date().toLocaleString("en-US", {
+        hour: "numeric",
+        minute: "numeric",
+        hour12: true,
+      });
+
+      setAllChat((prev) => [
+        ...prev,
+        {
+          from: data.username,
+          message: `Attachement : ${data.fileName}`,
+          time: time,
+          file: { fileName: data.fileName, fileDir: data.fileDir },
+        },
+      ]);
     }
 
     socket.on("connect", onConnect);
@@ -296,6 +337,7 @@ function Room() {
     socket.on("SDPProcess", onSDPProcess);
     socket.on("inform_user_left", informAboutUserLeft);
     socket.on("newMessageRecived", onNewMessageRecieve);
+    socket.on("newFileAttached", onNewAttachment);
 
     return () => {
       socket.off("connect", onConnect);
@@ -305,6 +347,7 @@ function Room() {
       socket.off("onSDPProcess", onSDPProcess);
       socket.off("inform_user_left", informAboutUserLeft);
       socket.off("newMessageRecived", onNewMessageRecieve);
+      socket.off("newFileAttached", onNewAttachment);
     };
   }, [connectId, userId, socket]);
 
@@ -318,17 +361,40 @@ function Room() {
 
   const handleEndCall = () => {
     if (confirm("Really want to leave ?")) {
-      navigate('/')
+      navigate("/");
     }
-  }
+  };
 
-  const handleFullScreen = (e:React.MouseEvent<HTMLVideoElement, MouseEvent>) => {
+  const handleFullScreen = (
+    e: React.MouseEvent<HTMLVideoElement, MouseEvent>
+  ) => {
     const videoElement = e.currentTarget;
     if (videoElement) {
       if (videoElement.requestFullscreen) {
         videoElement.requestFullscreen();
+      }
     }
-  }
+  };
+
+  const handleAttachement = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && connectId && currentUser) {
+      const file = e.target.files[0];
+      console.log({ file });
+      const formData = new FormData();
+      formData.append("sharedAttachment", file);
+      formData.append("connectId", connectId);
+      formData.append("userName", currentUser?.userName);
+
+      // send the file to backen with axios
+
+      //after send to backend
+      socket.emit("fileAttachedInfoToOthers", {
+        connectId,
+        username: currentUser.userName,
+        fileName: file.name,
+      });
+    }
+  };
 
   // componetise later
   return (
@@ -369,9 +435,21 @@ function Room() {
                 <div className=" h-full p-3 relative">
                   <div id="chat-display">
                     {allChat.map((chat, index) => (
-                      <div key={index} className={ `flex flex-col gap-1 mb-2 ${chat?.own && 'bg-gray-500'}`}>
-                        <div>{chat.from} <span>{chat.time}</span></div>
+                      <div
+                        key={index}
+                        className={`flex flex-col gap-1 mb-2 ${
+                          chat?.own && "bg-gray-500"
+                        }`}
+                      >
+                        <div>
+                          {chat.from} <span>{chat.time}</span>
+                        </div>
                         <p>{chat.message}</p>
+                        {chat.file && (
+                          <div className="bg-gray-800 text-white">
+                            <button>{chat.file.fileName}</button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -379,20 +457,25 @@ function Room() {
                     id="message-section"
                     className=" absolute flex gap-5 bottom-3 items-center"
                   >
-                    <button id="attachements" className="bg-gray-500 text-white px-2 py-1 rounded-lg">
-                      File
-                    </button>
                     <input
                       type="text"
                       className="bg-transparent border border-gray-700 rounded-md"
                       onChange={(e) => setMessage(e.target.value)}
                     />
-                    <button 
+                    <button
                       className="bg-gray-500 w-8 h-full rounded-full text-white"
                       onClick={messageHandler}
-                      >
+                    >
                       &gt;
                     </button>
+                    <div className=" bg-gray-400 px-2 py-1 relative">
+                      <input
+                        type="file"
+                        className="w-full h-full block absolute top-0 bottom-0 left-0 right-0 opacity-0 cursor-pointer"
+                        onChange={(e) => handleAttachement(e)}
+                      />
+                      <p className="">File</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -472,9 +555,9 @@ function Room() {
               <BsFillMicFill className="w-10 h-10" />
             )}
           </button>
-          
+
           <button className="cursor-pointer" onClick={handleEndCall}>
-          <MdCallEnd className="w-10 h-10 text-red-500 cursor-pointer"/>
+            <MdCallEnd className="w-10 h-10 text-red-500 cursor-pointer" />
           </button>
 
           <button className="cursor-pointer" onClick={() => handleVideo()}>
@@ -503,4 +586,3 @@ function Room() {
 }
 
 export default Room;
-
