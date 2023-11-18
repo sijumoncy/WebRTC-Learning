@@ -1,4 +1,4 @@
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { FaUsers, FaVideo, FaVideoSlash } from "react-icons/fa";
 import {
   BsFillChatLeftDotsFill,
@@ -30,6 +30,7 @@ enum VideoStates {
 
 function Room() {
   const [searchParams] = useSearchParams();
+  const navigate  = useNavigate()
   const [currentUser, setCurrentUser] = useState<{
     userName: string;
     connectionId: string;
@@ -315,6 +316,12 @@ function Room() {
     }
   };
 
+  const handleEndCall = () => {
+    if (confirm("Really want to leave ?")) {
+      navigate('/')
+    }
+  }
+
   // componetise later
   return (
     <div className="bg-black/80 w-full h-screen relative">
@@ -453,8 +460,10 @@ function Room() {
               <BsFillMicFill className="w-10 h-10" />
             )}
           </button>
-
-          <MdCallEnd className="w-10 h-10 text-red-500 cursor-pointer" />
+          
+          <button className="cursor-pointer" onClick={handleEndCall}>
+          <MdCallEnd className="w-10 h-10 text-red-500 cursor-pointer"/>
+          </button>
 
           <button className="cursor-pointer" onClick={() => handleVideo()}>
             {videoStatus === VideoStates.Camera ? (
