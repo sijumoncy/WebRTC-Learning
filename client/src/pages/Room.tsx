@@ -73,6 +73,10 @@ function Room() {
     }[]
   >([]);
 
+  const [recordStarted, setRecordStarted] = useState(false)
+  const [mediaRecorder, setNewMediaRecorder] = useState<MediaRecorder | null>()
+  const [recordedBlobURL, setRecordedBlobURL] = useState<string | null>()
+
   // handle check for meeting id and user details --> else redirect to home
   const connectId = searchParams.get("connectId");
   const userId = `tempuser`; //need to get from auth / login
@@ -396,6 +400,51 @@ function Room() {
     }
   };
 
+  // async function captureScreen(media = {
+  //   video : true
+  // }){
+  //   const screenStream = await navigator.mediaDevices.getDisplayMedia(media)
+  //   return screenStream;
+  // }
+
+  // async function captureAudio(media = {
+  //   video : false,
+  //   audio:true
+  // }){
+  //   const audioStream = await navigator.mediaDevices.getUserMedia(media)
+  //   return audioStream;
+  // }
+
+  const handleRecord = async () => {
+    if(recordStarted){
+      if(confirm("Do you want to stop recording")){
+        setRecordStarted(prev => !prev)
+      }
+    }else{
+      setRecordStarted(prev => !prev)
+      // const chucks:Blob[]= []
+      // const screenStream = await captureScreen()
+      // const audioStream = await captureAudio()
+      // const recordStream = new MediaStream([...screenStream.getTracks(), ...audioStream.getTracks()])
+      // const record = new MediaRecorder(recordStream)
+      // setNewMediaRecorder(record)
+      // record.start()
+      // record.onstop((e) => {
+      //   recordStream.getTracks().forEach((track) => track.stop())
+      //   if(chucks.length) {
+      //     const blob = new Blob(chucks, {
+      //       type:"video/webm"
+      //     })
+      //     const url = window.URL.createObjectURL(blob)
+      //     setRecordedBlobURL(url)
+      //   }
+      // })
+      // record.ondataavailable = (e) => {
+      //   chucks.push(e.data)
+      // }
+    }
+  }
+
   // componetise later
   return (
     <div className="bg-black/80 w-full h-screen relative">
@@ -579,6 +628,12 @@ function Room() {
           <button className="cursor-pointer">
             <MdMoreVert className="w-10 h-10 " />
           </button>
+          <button onClick={handleRecord}>{recordStarted ? "Recording" : "Record" }</button>
+          {recordedBlobURL && (
+            <a href={recordedBlobURL} download={'meetingRecord.webm'}>
+              Download Recording
+            </a>
+          )}
         </div>
       </section>
     </div>
