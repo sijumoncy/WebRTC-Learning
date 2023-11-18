@@ -60,7 +60,7 @@ function Room() {
 
   const [message, setMessage] = useState("");
   const [allChat, setAllChat ] = useState<{
-    from:string, message:string, time:string
+    from:string, message:string, time:string, own?:boolean
   }[]>([])
 
   // handle check for meeting id and user details --> else redirect to home
@@ -206,6 +206,12 @@ function Room() {
   const messageHandler = () => {
     socket.emit("sendMessage", {message});
     setMessage('')
+
+    // push the own message.
+    setAllChat((prev) => [...prev, {from:'', 
+    message:message, 
+    own:true, 
+    time: new Date().toLocaleString()}])
   };
 
   // socket connection
@@ -348,7 +354,7 @@ function Room() {
                 <div className=" h-full p-3 relative">
                   <div id="chat-display">
                     {allChat.map((chat, index) => (
-                      <div key={index} className="flex flex-col gap-1 mb-2">
+                      <div key={index} className={ `flex flex-col gap-1 mb-2 ${chat?.own && 'bg-gray-500'}`}>
                         <div>{chat.from} <span>{chat.time}</span></div>
                         <p>{chat.message}</p>
                       </div>
