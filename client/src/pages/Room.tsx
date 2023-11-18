@@ -10,8 +10,12 @@ import { MdCallEnd, MdMoreVert } from "react-icons/md";
 import { LuScreenShare } from "react-icons/lu";
 import { SDPClientSideProcess, socket } from "../socket/socket";
 import { useEffect, useState } from "react";
-import { removeMediaSenders, setNewRTCConnection, updateMediaSenders,
-  handleLeftUserConnection } from "../socket/webConnection";
+import {
+  removeMediaSenders,
+  setNewRTCConnection,
+  updateMediaSenders,
+  handleLeftUserConnection,
+} from "../socket/webConnection";
 
 type OtherUsersType = {
   joinedUserId: string;
@@ -26,7 +30,10 @@ enum VideoStates {
 
 function Room() {
   const [searchParams] = useSearchParams();
-  const [currentUser, setCurrentUser] = useState<{userName:string, connectionId:string}>();
+  const [currentUser, setCurrentUser] = useState<{
+    userName: string;
+    connectionId: string;
+  }>();
   const [otherUsers, setOtherUsers] = useState<OtherUsersType[] | []>([]);
   const [othersVideoStreams, setOthersVideoStreams] = useState<{
     [key: string]: MediaStream | null;
@@ -37,11 +44,24 @@ function Room() {
 
   const [audio, setaudio] = useState<MediaStream | null>(null);
   const [isMicMute, setIsMicMute] = useState(true);
-  const [rtpAudioSenders, setRtpAudioSenders] = useState<{[key:string]:RTCRtpSender | null}>({});
-  
+  const [rtpAudioSenders, setRtpAudioSenders] = useState<{
+    [key: string]: RTCRtpSender | null;
+  }>({});
+
   const [videoStatus, setVideoStatus] = useState<VideoStates>(VideoStates.None);
   const [localVideo, setLocalVideo] = useState<MediaStream | null>(null);
-  const [rtpVideoSenders, setRtpVideoSenders] = useState<{[key:string]:RTCRtpSender | null}>({});
+  const [rtpVideoSenders, setRtpVideoSenders] = useState<{
+    [key: string]: RTCRtpSender | null;
+  }>({});
+
+  const [detailsTab, setDetailsTab] = useState<null | "chat" | "participants">(
+    "chat"
+  );
+
+  const [message, setMessage] = useState("");
+  const [allChat, setAllChat ] = useState<{
+    from:string, message:string, time:string
+  }[]>([])
 
   // handle check for meeting id and user details --> else redirect to home
   const connectId = searchParams.get("connectId");
@@ -57,22 +77,29 @@ function Room() {
     );
     setOthersVideoStreams(remoteVideoStream);
     setOthersAudioStreams(remoteAudioStream);
-    if(remoteVideoStream && currentUser?.connectionId && rtpVideoSenders[currentUser?.connectionId]){
+    if (
+      remoteVideoStream &&
+      currentUser?.connectionId &&
+      rtpVideoSenders[currentUser?.connectionId]
+    ) {
       // update : video streams (need to move the to setNewRTCconnection last in MVP)
-      const newRtpVideoSenders = await updateMediaSenders(remoteVideoStream[currentUser?.connectionId]!.getTracks()[0], rtpVideoSenders)
-      setRtpVideoSenders(newRtpVideoSenders)
+      const newRtpVideoSenders = await updateMediaSenders(
+        remoteVideoStream[currentUser?.connectionId]!.getTracks()[0],
+        rtpVideoSenders
+      );
+      setRtpVideoSenders(newRtpVideoSenders);
     }
   }
 
-  async function loadAudio(){
-    try{
+  async function loadAudio() {
+    try {
       const audioStream = await navigator.mediaDevices.getUserMedia({
-        video:false,
-        audio:true
-      })
-      const audioTrack = audioStream.getAudioTracks()[0]
-      return audioTrack
-    } catch(err) {
+        video: false,
+        audio: true,
+      });
+      const audioTrack = audioStream.getAudioTracks()[0];
+      return audioTrack;
+    } catch (err) {
       console.log("audio load error : ", err);
     }
   }
@@ -82,17 +109,20 @@ function Room() {
     let audioTrack;
     if (!audio) {
       audioTrack = await loadAudio();
-      if(audioTrack){
-        setaudio(new MediaStream([audioTrack]))
+      if (audioTrack) {
+        setaudio(new MediaStream([audioTrack]));
       }
       console.log("Audio Permission not granded");
     }
     if (isMicMute) {
       setIsMicMute(false);
-      if(audioTrack){
+      if (audioTrack) {
         updateMediaSenders(audioTrack, rtpAudioSenders);
-        const newRtpAudioSenders = await updateMediaSenders(audioTrack, rtpAudioSenders)
-        setRtpAudioSenders(newRtpAudioSenders)
+        const newRtpAudioSenders = await updateMediaSenders(
+          audioTrack,
+          rtpAudioSenders
+        );
+        setRtpAudioSenders(newRtpAudioSenders);
       }
     } else {
       setIsMicMute(true);
@@ -100,16 +130,18 @@ function Room() {
     }
   };
 
-  const removeVideoStream = (rtpVideoSenders:{[key:string]:RTCRtpSender | null}) => {
-    if(localVideo){
-      localVideo.getVideoTracks()[0].stop()
-      setLocalVideo(null)
-      removeMediaSenders(rtpVideoSenders)
+  const removeVideoStream = (rtpVideoSenders: {
+    [key: string]: RTCRtpSender | null;
+  }) => {
+    if (localVideo) {
+      localVideo.getVideoTracks()[0].stop();
+      setLocalVideo(null);
+      removeMediaSenders(rtpVideoSenders);
     }
-  }
+  };
 
   const handleVideoOrScreen = async (type: VideoStates) => {
-    if(type === VideoStates.None){
+    if (type === VideoStates.None) {
       removeVideoStream(rtpVideoSenders);
       return;
     }
@@ -129,15 +161,18 @@ function Room() {
             width: 1400,
             height: 900,
           },
-          audio:false
+          audio: false,
         });
         // remove video on screen sharing..
       }
       if (stream && stream.getVideoTracks().length > 0) {
         const currentTrack = stream.getVideoTracks()[0];
-        setLocalVideo(new MediaStream([currentTrack]))
-        const newRtpVideoSenders = await updateMediaSenders(currentTrack, rtpVideoSenders)
-        setRtpVideoSenders(newRtpVideoSenders)
+        setLocalVideo(new MediaStream([currentTrack]));
+        const newRtpVideoSenders = await updateMediaSenders(
+          currentTrack,
+          rtpVideoSenders
+        );
+        setRtpVideoSenders(newRtpVideoSenders);
       }
     } catch (err) {
       console.log("error loading user media : ", err);
@@ -154,7 +189,7 @@ function Room() {
       await handleVideoOrScreen(VideoStates.Camera);
     }
   };
-  
+
   // handle Screen Share Control
   const handleScreenShare = async () => {
     if (videoStatus === VideoStates.Screen) {
@@ -165,6 +200,12 @@ function Room() {
       // process the video or screen
       await handleVideoOrScreen(VideoStates.Screen);
     }
+  };
+
+  // send messsage
+  const messageHandler = () => {
+    socket.emit("sendMessage", {message});
+    setMessage('')
   };
 
   // socket connection
@@ -188,9 +229,9 @@ function Room() {
       joinedConnectionId: string;
     }) {
       setCurrentUser({
-        userName:data.joinedUserId,
-        connectionId:data.joinedConnectionId,
-      })
+        userName: data.joinedUserId,
+        connectionId: data.joinedConnectionId,
+      });
       addJoinedUser(data.joinedUserId, data.joinedConnectionId);
     }
 
@@ -214,15 +255,16 @@ function Room() {
       // update media call (that need to be call last in setNewRTCConnection)
     }
 
-    async function informAboutUserLeft(data:{
-      leftUserId: string
-    }) {
+    async function informAboutUserLeft(data: { leftUserId: string }) {
       console.log("inoformation about left user :", data);
       // remove left user from others UI
-      const newOtherUsers = otherUsers.filter((userObj) => userObj.joinedUserId !== data.leftUserId)
+      const newOtherUsers = otherUsers.filter(
+        (userObj) => userObj.joinedUserId !== data.leftUserId
+      );
       setOtherUsers(newOtherUsers);
       // remove medias
-      const {remoteVideoStream, remoteAudioStream} = await handleLeftUserConnection(data.leftUserId)
+      const { remoteVideoStream, remoteAudioStream } =
+        await handleLeftUserConnection(data.leftUserId);
       setOthersVideoStreams(remoteVideoStream);
       setOthersAudioStreams(remoteAudioStream);
     }
@@ -231,12 +273,22 @@ function Room() {
       console.log("disconnected socket");
     }
 
+    function onNewMessageRecieve(data:{
+      from:string,
+      message:string,
+    }) {
+      const time = new Date()
+      const localTIme = time.toLocaleString()
+      setAllChat((prev) => [...prev, {from:data.from, message:data.message, time:localTIme}])
+    }
+
     socket.on("connect", onConnect);
     socket.on("disconnect", onDisconnect);
     socket.on("new_user_joined_info", onNewJoin);
     socket.on("inform_new_user_about_others", infoAboutOtherUsers);
     socket.on("SDPProcess", onSDPProcess);
     socket.on("inform_user_left", informAboutUserLeft);
+    socket.on("newMessageRecived", onNewMessageRecieve);
 
     return () => {
       socket.off("connect", onConnect);
@@ -245,8 +297,17 @@ function Room() {
       socket.off("inform_new_user_about_others", infoAboutOtherUsers);
       socket.off("onSDPProcess", onSDPProcess);
       socket.off("inform_user_left", informAboutUserLeft);
+      socket.off("newMessageRecived", onNewMessageRecieve);
     };
   }, [connectId, userId, socket]);
+
+  const handleDetailsTab = (type: null | "chat" | "participants") => {
+    if (type === detailsTab) {
+      setDetailsTab(null);
+    } else {
+      setDetailsTab(type);
+    }
+  };
 
   // componetise later
   return (
@@ -254,15 +315,66 @@ function Room() {
       {/* top menu bar */}
       <section
         id="top-menu"
-        className="w-1/4 absolute top-0 left-0 h-20 bg-white flex gap-10 items-center justify-around"
+        className="w-1/4 absolute top-0 right-0 h-20 bg-white flex flex-col"
       >
-        <div className="flex gap-1 cursor-pointer">
-          <FaUsers className="w-10 h-10" />
-          <span>2</span>
+        <div className="flex w-full h-full justify-around items-center">
+          <div
+            className="flex gap-1 cursor-pointer"
+            onClick={() => handleDetailsTab("participants")}
+          >
+            <FaUsers className="w-10 h-10" />
+            <span>{otherUsers.length}</span>
+          </div>
+          <div
+            className="flex gap-1 cursor-pointer"
+            onClick={() => handleDetailsTab("chat")}
+          >
+            <BsFillChatLeftDotsFill className="w-10 h-10" />
+          </div>
         </div>
-        <div className="flex gap-1 cursor-pointer">
-          <BsFillChatLeftDotsFill className="w-10 h-10" />
-        </div>
+        {detailsTab && (
+          <div className="bg-white absolute top-28 right-0 max-h-[500px] h-[500px] w-full">
+            <p className="w-full p-3 font-medium">{detailsTab}</p>
+            {detailsTab === "participants" && (
+              <div id="perticipants-details">
+                {otherUsers?.map((user) => (
+                  <span>{user.joinedConnectionId}</span>
+                ))}
+              </div>
+            )}
+
+            {detailsTab === "chat" && (
+              <div id="chat-details" className="p-3 w-full h-[90%]">
+                <div className=" h-full p-3 relative">
+                  <div id="chat-display">
+                    {allChat.map((chat, index) => (
+                      <div key={index} className="flex flex-col gap-1 mb-2">
+                        <div>{chat.from} <span>{chat.time}</span></div>
+                        <p>{chat.message}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div
+                    id="message-section"
+                    className=" absolute flex gap-5 bottom-3"
+                  >
+                    <input
+                      type="text"
+                      className="bg-transparent border border-gray-700 rounded-md"
+                      onChange={(e) => setMessage(e.target.value)}
+                    />
+                    <button 
+                      className="bg-gray-500 w-8 h-full rounded-full text-white"
+                      onClick={messageHandler}
+                      >
+                      &gt;
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
       {/* main section */}
@@ -275,7 +387,8 @@ function Room() {
               autoPlay
               muted
               ref={(vidElement) =>
-                vidElement && localVideo && (vidElement.srcObject =localVideo)}
+                vidElement && localVideo && (vidElement.srcObject = localVideo)
+              }
             />
           </div>
         </div>

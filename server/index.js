@@ -60,6 +60,24 @@ io.on("connection", (socket) => {
     })
   })
 
+  socket.on("sendMessage", (data) => {
+    console.log("message recive event");
+    messagedUser = connections.find((connection) => connection.connectionId === socket.id)
+    if(messagedUser){
+      const msgUserconnectId = messagedUser.connectId
+      const msgFrom = messagedUser.userId
+      // filter meeting room users
+      const connectRoomUsers = connections.filter((connection) => connection.connnectId === msgUserconnectId)
+      connectRoomUsers.forEach((user) => {
+        socket.to(user.connectionId).emit("newMessageRecived", {
+          from:msgFrom,
+          message:data.message,
+        })
+      })
+
+    }
+  })
+
   socket.on("disconnect", () => {
     console.log("user disconnected");
     const leftUser = connections.find((connection) => connection.connectionId === socket.id)
@@ -69,7 +87,7 @@ io.on("connection", (socket) => {
       // list of all users in the same connect room
       const connectRoomUsers = connections.filter((connection) => connection.connnectId === leftConnnectId)
       connectRoomUsers.forEach((user) => {
-        socket.to(user.connectId).emit("inform_user_left", {
+        socket.to(user.connectionId).emit("inform_user_left", {
           leftUserId:socket.id
         })
       })
