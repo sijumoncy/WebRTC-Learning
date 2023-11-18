@@ -322,6 +322,14 @@ function Room() {
     }
   }
 
+  const handleFullScreen = (e:React.MouseEvent<HTMLVideoElement, MouseEvent>) => {
+    const videoElement = e.currentTarget;
+    if (videoElement) {
+      if (videoElement.requestFullscreen) {
+        videoElement.requestFullscreen();
+    }
+  }
+
   // componetise later
   return (
     <div className="bg-black/80 w-full h-screen relative">
@@ -369,8 +377,11 @@ function Room() {
                   </div>
                   <div
                     id="message-section"
-                    className=" absolute flex gap-5 bottom-3"
+                    className=" absolute flex gap-5 bottom-3 items-center"
                   >
+                    <button id="attachements" className="bg-gray-500 text-white px-2 py-1 rounded-lg">
+                      File
+                    </button>
                     <input
                       type="text"
                       className="bg-transparent border border-gray-700 rounded-md"
@@ -422,6 +433,7 @@ function Room() {
                     (vidElement.srcObject =
                       othersVideoStreams[other.joinedConnectionId])
                   }
+                  onDoubleClick={(e) => handleFullScreen(e)}
                 />
                 <audio
                   className="hidden"
@@ -491,3 +503,4 @@ function Room() {
 }
 
 export default Room;
+
