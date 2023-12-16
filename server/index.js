@@ -1,6 +1,5 @@
 const express = require('express');
 const http = require('http');
-const socketIo = require('socket.io');
 const dotenv = require('dotenv');
 const cors = require('cors');
 
@@ -19,7 +18,7 @@ const {Server} = require('socket.io');
 const path = require('path');
 const fs = require('fs')
 
-const  fileUpload = require('express-fileupload')
+const fileUpload = require('express-fileupload')
 
 const server = http.createServer(app)
 
@@ -34,7 +33,6 @@ const io = new Server(server, {
 let CONNECTIONS = []
 
 io.on("connection", (socket) => {
-	console.log('user connected server', socket.id)
 
   // user on connection event
   socket.on('userconnected', (data) => {

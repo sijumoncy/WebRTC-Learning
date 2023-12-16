@@ -360,6 +360,14 @@ function Room() {
     };
   }, [connectId, userId, socket]);
 
+  useEffect(() => {
+    if(socket && connectId) {
+      console.log("in connection first time");
+      socket.connect()
+      
+    }
+  })
+
   const handleDetailsTab = (type: null | "chat" | "participants") => {
     if (type === detailsTab) {
       setDetailsTab(null);

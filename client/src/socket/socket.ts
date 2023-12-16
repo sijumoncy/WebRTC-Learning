@@ -3,7 +3,9 @@ import { peersConnection, setNewRTCConnection } from "./webConnection";
 
 const URL = "http://localhost:8001";
 
-const socket = io(URL);
+const socket = io(URL, {
+  autoConnect: false
+});
 
 // fucntion to send user iceconfig to server
 async function SDPFunction(data: string, toConnectionId: string) {
