@@ -73,9 +73,9 @@ function Room() {
     }[]
   >([]);
 
-  const [recordStarted, setRecordStarted] = useState(false)
-  const [mediaRecorder, setNewMediaRecorder] = useState<MediaRecorder | null>()
-  const [recordedBlobURL, setRecordedBlobURL] = useState<string | null>()
+  const [recordStarted, setRecordStarted] = useState(false);
+  const [mediaRecorder, setNewMediaRecorder] = useState<MediaRecorder | null>();
+  const [recordedBlobURL, setRecordedBlobURL] = useState<string | null>();
 
   // handle check for meeting id and user details --> else redirect to home
   const connectId = searchParams.get("connectId");
@@ -85,10 +85,13 @@ function Room() {
     joinedUserId: string,
     joinedConnectionId: string
   ) {
+    
     setOtherUsers((prev) => [...prev, { joinedUserId, joinedConnectionId }]);
     const { remoteVideoStream, remoteAudioStream } = await setNewRTCConnection(
       joinedConnectionId
     );
+    console.log("in New joined users =============>");
+    
     setOthersVideoStreams(remoteVideoStream);
     setOthersAudioStreams(remoteAudioStream);
     if (
@@ -182,6 +185,7 @@ function Room() {
       if (stream && stream.getVideoTracks().length > 0) {
         const currentTrack = stream.getVideoTracks()[0];
         setLocalVideo(new MediaStream([currentTrack]));
+        
         const newRtpVideoSenders = await updateMediaSenders(
           currentTrack,
           rtpVideoSenders
@@ -198,9 +202,17 @@ function Room() {
     if (videoStatus === VideoStates.Camera) {
       setVideoStatus(VideoStates.None);
       await handleVideoOrScreen(VideoStates.None);
+      socket.emit("media_update_trigger", {
+        connectId,
+        connectionId: currentUser?.connectionId,
+      });
     } else {
       setVideoStatus(VideoStates.Camera);
       await handleVideoOrScreen(VideoStates.Camera);
+      socket.emit("media_update_trigger", {
+        connectId,
+        connectionId: currentUser?.connectionId,
+      });
     }
   };
 
@@ -255,7 +267,7 @@ function Room() {
       joinedConnectionId: string; //id of joined user
     }) {
       console.log("new user joined : ", data.joinedUserId);
-      
+
       setCurrentUser({
         userName: data.joinedUserId,
         connectionId: data.joinedConnectionId,
@@ -268,7 +280,7 @@ function Room() {
       otherUsers: { userId: string; connectionId: string }[]
     ) {
       console.log("new user get data of others ====>", otherUsers);
-      
+
       if (otherUsers.length) {
         otherUsers.forEach((other) => {
           addJoinedUser(other.userId, other.connectionId);
@@ -295,6 +307,7 @@ function Room() {
       // remove medias
       const { remoteVideoStream, remoteAudioStream } =
         await handleLeftUserConnection(data.leftUserId);
+      console.log("in inform about users ........................?????????");
       setOthersVideoStreams(remoteVideoStream);
       setOthersAudioStreams(remoteAudioStream);
     }
@@ -339,6 +352,10 @@ function Room() {
       ]);
     }
 
+    function onMediaChange(data:unknown) {
+      console.log("media change happended ====>", data);
+    }
+
     socket.on("connect", onConnect);
     socket.on("disconnect", onDisconnect);
     socket.on("new_user_joined_info", onNewJoin);
@@ -347,7 +364,8 @@ function Room() {
     socket.on("inform_user_left", informAboutUserLeft);
     socket.on("newMessageRecived", onNewMessageRecieve);
     socket.on("newFileAttached", onNewAttachment);
-
+    socket.on("media_update_trigger", onMediaChange);   
+    
     return () => {
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
@@ -357,16 +375,16 @@ function Room() {
       socket.off("inform_user_left", informAboutUserLeft);
       socket.off("newMessageRecived", onNewMessageRecieve);
       socket.off("newFileAttached", onNewAttachment);
+      socket.off("media_update_trigger", onMediaChange);   
     };
   }, [connectId, userId, socket]);
 
   useEffect(() => {
-    if(socket && connectId) {
+    if (socket && connectId) {
       console.log("in connection first time");
-      socket.connect()
-      
+      socket.connect();
     }
-  })
+  });
 
   const handleDetailsTab = (type: null | "chat" | "participants") => {
     if (type === detailsTab) {
@@ -378,7 +396,7 @@ function Room() {
 
   const handleEndCall = () => {
     if (confirm("Really want to leave ?")) {
-      socket.disconnect()
+      socket.disconnect();
       navigate("/");
     }
   };
@@ -430,12 +448,12 @@ function Room() {
   // }
 
   const handleRecord = async () => {
-    if(recordStarted){
-      if(confirm("Do you want to stop recording")){
-        setRecordStarted(prev => !prev)
+    if (recordStarted) {
+      if (confirm("Do you want to stop recording")) {
+        setRecordStarted((prev) => !prev);
       }
-    }else{
-      setRecordStarted(prev => !prev)
+    } else {
+      setRecordStarted((prev) => !prev);
       // const chucks:Blob[]= []
       // const screenStream = await captureScreen()
       // const audioStream = await captureAudio()
@@ -457,7 +475,8 @@ function Room() {
       //   chucks.push(e.data)
       // }
     }
-  }
+  };
+
 
   // componetise later
   return (
@@ -550,17 +569,21 @@ function Room() {
       {/* main section */}
       <section id="video-section" className="w-full h-full">
         {/* own ui */}
-        <div>
-          <div className="">
-            <video
-              className=""
-              autoPlay
-              muted
-              ref={(vidElement) =>
-                vidElement && localVideo && (vidElement.srcObject = localVideo)
-              }
-            />
-          </div>
+        <div className="border p-2 max-w-[15rem] max-h-[10rem] h-[8rem] rounded-md flex justify-center items-center">
+          {localVideo ? (
+            <div className="">
+              <video
+                className=""
+                autoPlay
+                muted
+                ref={(vidElement) =>
+                  vidElement &&
+                  localVideo &&
+                  (vidElement.srcObject = localVideo)
+                }
+              />
+            </div>
+          ):(<div className="">No User Video</div>)}
         </div>
         {/* other users */}
         <div className="grid grid-flow-col">
@@ -586,7 +609,6 @@ function Room() {
                   src=""
                   autoPlay
                   controls
-                  muted
                   ref={(audioElm) =>
                     audioElm &&
                     (audioElm.srcObject =
@@ -594,7 +616,7 @@ function Room() {
                   }
                 />
               </div>
-              <span className="text-sm font-medium">{other.joinedUserId}</span>
+              <span className="text-sm font-medium">{other.joinedUserId} | {other.joinedConnectionId}</span>
             </div>
           ))}
         </div>
@@ -642,9 +664,11 @@ function Room() {
           <button className="cursor-pointer">
             <MdMoreVert className="w-10 h-10 " />
           </button>
-          <button onClick={handleRecord}>{recordStarted ? "Recording" : "Record" }</button>
+          <button onClick={handleRecord}>
+            {recordStarted ? "Recording" : "Record"}
+          </button>
           {recordedBlobURL && (
-            <a href={recordedBlobURL} download={'meetingRecord.webm'}>
+            <a href={recordedBlobURL} download={"meetingRecord.webm"}>
               Download Recording
             </a>
           )}

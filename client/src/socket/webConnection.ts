@@ -105,6 +105,7 @@ const setNewRTCConnection = async (joinedConnectId:string) => {
 
     // get connected streams and data
     rtcConnection.ontrack = function(event) {
+        
         if(!remoteVideoStream[joinedConnectId]){
             remoteVideoStream[joinedConnectId] = new MediaStream()
         }
@@ -120,7 +121,7 @@ const setNewRTCConnection = async (joinedConnectId:string) => {
         }
         if(event.track.kind === 'audio') { 
             if(remoteAudioStream[joinedConnectId] !== null){
-                remoteAudioStream[joinedConnectId]!.getVideoTracks()
+                remoteAudioStream[joinedConnectId]!.getAudioTracks()
                 .forEach((audioTrack) => remoteAudioStream[joinedConnectId]!.removeTrack(audioTrack))
                 remoteAudioStream[joinedConnectId]!.addTrack(event.track)
             }

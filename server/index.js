@@ -91,6 +91,18 @@ io.on("connection", (socket) => {
     }
   })
 
+  socket.on("media_update_trigger", (data) => {
+    const roomConnectId = data.connectId
+    console.log("In media update event", data, {roomConnectId});
+    const roomUsers = CONNECTIONS.filter((connection) => connection.connnectId === roomConnectId)
+    console.log({roomUsers});
+    roomUsers.forEach((user) => {
+      socket.to(user.connectionId).emit("media_update_trigger", {
+        ...data
+      })
+    })
+  })
+
   socket.on("fileAttachedInfoToOthers", (data) => {
     console.log("file attched event call");
     const fileDir = path.join(__dirname, "attachments", data.connectId, data.fileName)
