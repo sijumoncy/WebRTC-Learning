@@ -7,7 +7,13 @@ const cors = require('cors');
 dotenv.config();
 
 const app = express();
-app.use(cors())
+
+const corsOptions = {
+  origin: '*',
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
 
 const {Server} = require('socket.io');
 const path = require('path');
@@ -25,22 +31,23 @@ const io = new Server(server, {
 })
 
 // store all connectiondata of all users
-const connections = []
+let CONNECTIONS = []
 
 io.on("connection", (socket) => {
-	console.log('user connected', socket.id)
+	console.log('user connected server', socket.id)
 
   // user on connection event
   socket.on('userconnected', (data) => {
-    console.log("connected user : ", {data});
+    console.log("connected user - new user connected : ", {data});
 
     // users data for the same connectId room
-    const otherUsers = connections.filter((user) => user.connnectId === data.connectId)
+    const otherUsers = CONNECTIONS.filter((user) => user.connnectId === data.connectId) || []
 
-    connections.push({
-      connectionId:socket.id, // unique user connected id
-      userId: data.disaplayName,
-      connnectId:data.connectId //room id
+    // adding joined user in server to a global var
+    CONNECTIONS.push({
+      connectionId:socket.id, // unique user connected id -> who is connected unique id 
+      userId: data.disaplayName, // username added from frontend
+      connnectId:data.connectId //room id 
     })
 
     // send info to all existing room user about new user joined
@@ -51,8 +58,12 @@ io.on("connection", (socket) => {
       })
     })
 
+    console.log({otherUsers}, "current user : ", socket.id);
+
     // emit other users info to newly joined users
     socket.emit("inform_new_user_about_others", otherUsers)
+
+    console.log({CONNECTIONS});
 
   })
 
@@ -66,12 +77,12 @@ io.on("connection", (socket) => {
 
   socket.on("sendMessage", (data) => {
     console.log("message recive event");
-    messagedUser = connections.find((connection) => connection.connectionId === socket.id)
+    messagedUser = CONNECTIONS.find((connection) => connection.connectionId === socket.id)
     if(messagedUser){
       const msgUserconnectId = messagedUser.connectId
       const msgFrom = messagedUser.userId
       // filter meeting room users
-      const connectRoomUsers = connections.filter((connection) => connection.connnectId === msgUserconnectId)
+      const connectRoomUsers = CONNECTIONS.filter((connection) => connection.connnectId === msgUserconnectId)
       connectRoomUsers.forEach((user) => {
         socket.to(user.connectionId).emit("newMessageRecived", {
           from:msgFrom,
@@ -85,12 +96,12 @@ io.on("connection", (socket) => {
   socket.on("fileAttachedInfoToOthers", (data) => {
     console.log("file attched event call");
     const fileDir = path.join(__dirname, "attachments", data.connectId, data.fileName)
-    const fileSharedUser = connections.find((connection) => connection.connectionId === socket.id)
+    const fileSharedUser = CONNECTIONS.find((connection) => connection.connectionId === socket.id)
     if(fileSharedUser){
       const FileSharedUserconnectId = fileSharedUser.connectId
       const FileFrom = fileSharedUser.userId
       // filter meeting room users
-      const connectRoomUsers = connections.filter((connection) => connection.connnectId === FileSharedUserconnectId)
+      const connectRoomUsers = CONNECTIONS.filter((connection) => connection.connnectId === FileSharedUserconnectId)
       connectRoomUsers.forEach((user) => {
         socket.to(user.connectionId).emit("newFileAttached", {
           connectId:data.connectId,
@@ -105,15 +116,18 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     console.log("user disconnected");
-    const leftUser = connections.find((connection) => connection.connectionId === socket.id)
+    const disconnectedUserSocketId = socket.id 
+    console.log("just disconnect =======>", {disconnectedUserSocketId, CONNECTIONS});
+    const leftUser = CONNECTIONS.find((connection) => connection.connectionId === disconnectedUserSocketId)
     if(leftUser){
-      const leftConnnectId = leftUser.connnectId
-      const connections = connections.filter((connection) => connection.connnectId !== socket.id)
+      const leftConnnectId = leftUser.connnectId // room id
+      CONNECTIONS = CONNECTIONS.filter((connection) => connection.connectionId !== disconnectedUserSocketId)
+      console.log("filtered connections ", {CONNECTIONS});
       // list of all users in the same connect room
-      const connectRoomUsers = connections.filter((connection) => connection.connnectId === leftConnnectId)
+      const connectRoomUsers = CONNECTIONS.filter((connection) => connection.connnectId === leftConnnectId) // get all users of the same room of left user
       connectRoomUsers.forEach((user) => {
         socket.to(user.connectionId).emit("inform_user_left", {
-          leftUserId:socket.id
+          leftUserId:disconnectedUserSocketId
         })
       })
     }
@@ -137,7 +151,7 @@ app.post("/attachment", (req, res) => {
   })
 })
 
-server.listen(8000, () => {
+server.listen(8001, () => {
 	console.log('app is running ')
 })
 

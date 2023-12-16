@@ -238,6 +238,7 @@ function Room() {
     function onConnect() {
       console.log("connected socket");
       // connecting to a room for logined user
+      // event fire on user joined in room
       if (socket.connected) {
         if (userId && connectId) {
           socket.emit("userconnected", {
@@ -248,11 +249,13 @@ function Room() {
       }
     }
 
-    // newly joined other user info --> add to UI
+    // newly joined other user info --> add to UI when a new user joined (for existing users UI)
     function onNewJoin(data: {
-      joinedUserId: string;
-      joinedConnectionId: string;
+      joinedUserId: string; // name of joined user
+      joinedConnectionId: string; //id of joined user
     }) {
+      console.log("new user joined : ", data.joinedUserId);
+      
       setCurrentUser({
         userName: data.joinedUserId,
         connectionId: data.joinedConnectionId,
@@ -262,11 +265,13 @@ function Room() {
 
     // Info about other users who are in the room to newly joined
     function infoAboutOtherUsers(
-      otherUsers: { joinedUserId: string; joinedConnectionId: string }[]
+      otherUsers: { userId: string; connectionId: string }[]
     ) {
-      if (otherUsers) {
+      console.log("new user get data of others ====>", otherUsers);
+      
+      if (otherUsers.length) {
         otherUsers.forEach((other) => {
-          addJoinedUser(other.joinedUserId, other.joinedConnectionId);
+          addJoinedUser(other.userId, other.connectionId);
         });
       }
     }
@@ -284,7 +289,7 @@ function Room() {
       console.log("inoformation about left user :", data);
       // remove left user from others UI
       const newOtherUsers = otherUsers.filter(
-        (userObj) => userObj.joinedUserId !== data.leftUserId
+        (userObj) => userObj.joinedConnectionId !== data.leftUserId
       );
       setOtherUsers(newOtherUsers);
       // remove medias
@@ -365,6 +370,7 @@ function Room() {
 
   const handleEndCall = () => {
     if (confirm("Really want to leave ?")) {
+      socket.disconnect()
       navigate("/");
     }
   };

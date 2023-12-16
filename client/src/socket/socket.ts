@@ -1,7 +1,7 @@
 import io from "socket.io-client";
 import { peersConnection, setNewRTCConnection } from "./webConnection";
 
-const URL = "http://localhost:8000";
+const URL = "http://localhost:8001";
 
 const socket = io(URL);
 
